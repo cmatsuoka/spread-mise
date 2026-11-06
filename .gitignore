@@ -1,0 +1,11 @@
+/bin/
+/src/
+.cache/
+*.log
+
+# mise local/generated configuration
+mise.local.toml
+.mise.local.toml
+mise.*.local.toml
+.miserc.local.toml
+.mise/
