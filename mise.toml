@@ -1,0 +1,45 @@
+[tools]
+# Match the Go version required by the project.
+go = "1.27.0"
+
+[env]
+# Repository URL for the spread source.
+SPREAD_REPO = "${SPREAD_REPO:-https://github.com/canonical/spread.git}"
+# Directory where the cloned source will live.
+SPREAD_SRC = "${SPREAD_SRC:-${PWD}/src/spread}"
+# Tag to deploy. Empty means the most recent tag is resolved at run time.
+SPREAD_TAG = "${SPREAD_TAG:-}"
+
+[tasks.clone]
+description = "Clone the requested tagged release of spread"
+run = '''
+set -e
+if [ -n "${SPREAD_TAG}" ]; then
+    TAG="${SPREAD_TAG}"
+else
+    TAG=$(git ls-remote --tags --sort=-v:refname "${SPREAD_REPO}" | grep -v '\^{}$' | head -n1 | cut -f2)
+    # Strip the refs/tags/ prefix for a plain tag name.
+    TAG=${TAG#refs/tags/}
+fi
+echo "Tag: ${TAG}"
+if [ -d "${SPREAD_SRC}/.git" ]; then
+    git -C "${SPREAD_SRC}" fetch --tags "${SPREAD_REPO}"
+    git -C "${SPREAD_SRC}" checkout -f "${TAG}"
+else
+    git clone --branch "${TAG}" --single-branch "${SPREAD_REPO}" "${SPREAD_SRC}"
+fi
+'''
+
+[tasks.build]
+description = "Compile the spread binaries from the cloned source"
+depends = ["clone"]
+run = "go build -C \"${SPREAD_SRC}\" -o \"${PWD}/bin/\" ./cmd/spread"
+
+[tasks.deploy]
+description = "Install the compiled spread binary"
+depends = ["build"]
+run = "install -D -m 0755 \"${PWD}/bin/spread\" ${MISE_INSTALL_DIR:-/usr/local/bin}/spread"
+
+[tasks.default]
+description = "Run the default build task"
+depends = ["build"]
